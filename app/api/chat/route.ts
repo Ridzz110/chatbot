@@ -23,34 +23,40 @@ export async function POST(req: Request) {
     });
     
     const response = result.toAIStreamResponse();
-    const reader = response.body.getReader();
-    let decoder = new TextDecoder();
-    
-    const stream = new ReadableStream({
-      async start(controller) {
-        let done = false;
-    
-        while (!done) {
-          const { value, done: readerDone } = await reader.read();
-          done = readerDone;
-          if (value) {
-            const chunk = decoder.decode(value, { stream: true });
-            console.log('Response chunk:', chunk);
-            controller.enqueue(value);
-          }
-        }
-    
-        controller.close();
-        console.log('Stream complete');
+
+// Check if response.body is null
+if (!response.body) {
+  throw new Error("Response body is null");
+}
+
+const reader = response.body.getReader();
+let decoder = new TextDecoder();
+
+const stream = new ReadableStream({
+  async start(controller) {
+    let done = false;
+
+    while (!done) {
+      const { value, done: readerDone } = await reader.read();
+      done = readerDone;
+      if (value) {
+        const chunk = decoder.decode(value, { stream: true });
+        console.log('Response chunk:', chunk);
+        controller.enqueue(value);
       }
-    });
-    
-    return new Response(stream, {
-      status: 200,
-      headers: {
-        'Content-Type': 'text/plain; charset=utf-8',
-      },
-    });
+    }
+
+    controller.close();
+    console.log('Stream complete');
+  }
+});
+
+return new Response(stream, {
+  status: 200,
+  headers: {
+    'Content-Type': 'text/plain; charset=utf-8',
+  },
+});
   } catch (error) {
     console.error('Error while streaming text:', error);
     return new Response('Internal Server Error', { status: 500 });
